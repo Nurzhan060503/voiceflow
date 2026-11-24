@@ -1,0 +1,249 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#080e1c">
+<title>VOICEFLOW — Voice to Text</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+ font-family:Arial,sans-serif;
+ background:#080e1c;color:#fff;
+ min-height:100vh;padding:22px;
+ display:flex;justify-content:center;
+}
+.app{width:100%;max-width:850px}
+header{display:flex;justify-content:space-between;align-items:center;margin:15px 0 55px}
+.logo{font-size:25px;font-weight:800;letter-spacing:1px}
+.logo span{color:#648cff}
+.online{font-size:12px;color:#54dfa5;background:#14352e;padding:9px 13px;border-radius:30px}
+.hero{text-align:center;margin-bottom:35px}
+.hero h1{font-size:clamp(30px,6vw,48px);line-height:1.15;margin-bottom:15px}
+.hero h1 span{color:#7297ff}
+.hero p{color:#9ba9c4;line-height:1.6}
+.panel{
+ background:#111b2e;border:1px solid #263652;
+ border-radius:25px;padding:25px;
+ box-shadow:0 20px 60px #0005;
+}
+.label{display:block;color:#b9c7df;font-size:14px;margin-bottom:10px}
+select{
+ width:100%;padding:15px;border-radius:12px;
+ background:#1c2a42;color:white;
+ border:1px solid #354969;font-size:16px;
+ outline:none;
+}
+.mic-area{text-align:center;padding:35px 0}
+.mic{
+ width:100px;height:100px;border-radius:50%;
+ border:0;background:linear-gradient(135deg,#568bff,#7658ed);
+ color:white;font-size:38px;cursor:pointer;
+ box-shadow:0 0 40px #547fff55;
+ transition:.2s;
+}
+.mic:active{transform:scale(.94)}
+.mic.active{background:linear-gradient(135deg,#f04e70,#c52e58);animation:pulse 1.4s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 17px #f04e7020}}
+#status{color:#a9b9d6;margin-top:18px;font-size:14px;line-height:1.5}
+.output-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.counter{font-size:12px;color:#8092b1}
+textarea{
+ width:100%;min-height:210px;resize:vertical;
+ padding:18px;border-radius:15px;
+ background:#0b1424;border:1px solid #293c5c;
+ color:#fff;font-size:17px;line-height:1.6;
+ outline:none;
+}
+textarea:focus{border-color:#668dff}
+.buttons{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:15px}
+button.action{
+ padding:14px 8px;border:0;border-radius:12px;
+ background:#293b5c;color:white;font-weight:bold;
+ cursor:pointer;font-size:14px;
+}
+button.action.primary{background:#426ff0}
+button.action:hover{filter:brightness(1.15)}
+.hint{text-align:center;color:#71819e;font-size:12px;line-height:1.6;margin-top:20px}
+footer{text-align:center;color:#61718d;font-size:12px;margin:30px 0 15px}
+@media(max-width:500px){
+ body{padding:15px}
+ header{margin:10px 0 38px}
+ .panel{padding:19px;border-radius:20px}
+ .mic{width:88px;height:88px}
+ .mic-area{padding:30px 0}
+ textarea{min-height:190px;font-size:16px}
+ button.action{font-size:12px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+ <div class="logo">VOICE<span>FLOW</span>.</div>
+ <div class="online">● READY</div>
+</header>
+
+<section class="hero">
+ <h1>Your voice.<br><span>Your text.</span></h1>
+ <p>Сөйлеген сөзіңізді мәтінге айналдырыңыз.<br>Быстро, удобно и просто.</p>
+</section>
+
+<main class="panel">
+ <label class="label" for="language">Выберите язык / Тілді таңдаңыз</label>
+ <select id="language">
+  <option value="kk-KZ">🇰🇿 Қазақша</option>
+  <option value="ru-RU">🇷🇺 Русский</option>
+  <option value="en-US">🇬🇧 English</option>
+ </select>
+
+ <div class="mic-area">
+  <button class="mic" id="mic" aria-label="Начать запись">🎙</button>
+  <div id="status">Нажмите на микрофон и начните говорить</div>
+ </div>
+
+ <div class="output-head">
+  <label class="label">Распознанный текст</label>
+  <span class="counter" id="counter">0 символов</span>
+ </div>
+ <textarea id="result" placeholder="Здесь появится ваш текст..."></textarea>
+
+ <div class="buttons">
+  <button class="action primary" id="copy">📋 Копировать</button>
+  <button class="action" id="download">⬇ Скачать TXT</button>
+  <button class="action" id="clear">✕ Очистить</button>
+ </div>
+ <p class="hint">Разрешите доступ к микрофону. Для распознавания речи требуется интернет и поддерживаемый браузер.</p>
+</main>
+<footer>VOICEFLOW © 2026 · SPEECH TO TEXT</footer>
+</div>
+
+<script>
+const SpeechRecognition =
+ window.SpeechRecognition || window.webkitSpeechRecognition;
+
+const mic = document.getElementById("mic");
+const status = document.getElementById("status");
+const result = document.getElementById("result");
+const language = document.getElementById("language");
+const counter = document.getElementById("counter");
+
+let recognition = null;
+let listening = false;
+
+function updateCounter(){
+ counter.textContent = result.value.length + " символов";
+}
+result.addEventListener("input",updateCounter);
+
+function stopListening(){
+ if(recognition && listening){
+  recognition.stop();
+ }
+}
+
+mic.addEventListener("click",()=>{
+ if(!SpeechRecognition){
+  status.textContent="Ваш браузер не поддерживает распознавание речи. Откройте сайт в Chrome или Edge.";
+  return;
+ }
+
+ if(listening){
+  stopListening();
+  return;
+ }
+
+ recognition = new SpeechRecognition();
+ recognition.lang = language.value;
+ recognition.continuous = true;
+ recognition.interimResults = true;
+
+ recognition.onstart=()=>{
+  listening=true;
+  mic.classList.add("active");
+  mic.textContent="■";
+  status.textContent="🎤 Слушаю вас...";
+ };
+
+ recognition.onresult=(event)=>{
+  let finalPart="";
+  let interimPart="";
+
+  for(let i=event.resultIndex;i<event.results.length;i++){
+   const transcript=event.results[i][0].transcript;
+   if(event.results[i].isFinal){
+    finalPart+=transcript+" ";
+   }else{
+    interimPart+=transcript;
+   }
+  }
+
+  if(finalPart){
+   result.value+=finalPart;
+   updateCounter();
+  }
+
+  status.textContent=interimPart
+   ? "Распознаю: "+interimPart
+   : "Текст распознан";
+ };
+
+ recognition.onerror=(event)=>{
+  status.textContent="Ошибка: "+event.error;
+ };
+
+ recognition.onend=()=>{
+  listening=false;
+  mic.classList.remove("active");
+  mic.textContent="🎙";
+  if(!status.textContent.startsWith("Ошибка:")){
+   status.textContent="Запись остановлена. Нажмите микрофон, чтобы продолжить.";
+  }
+ };
+
+ try{
+  recognition.start();
+ }catch(error){
+  status.textContent="Не удалось запустить микрофон: "+error.message;
+ }
+});
+
+language.addEventListener("change",()=>{
+ if(listening) stopListening();
+ status.textContent="Выбран язык: "+language.options[language.selectedIndex].text;
+});
+
+document.getElementById("copy").onclick=async()=>{
+ try{
+  await navigator.clipboard.writeText(result.value);
+  status.textContent="✅ Текст скопирован!";
+ }catch(e){
+  result.select();
+  document.execCommand("copy");
+  status.textContent="Текст скопирован!";
+ }
+};
+
+document.getElementById("download").onclick=()=>{
+ const blob=new Blob(["\uFEFF"+result.value],{type:"text/plain;charset=utf-8"});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement("a");
+ a.href=url;
+ a.download="voiceflow-text.txt";
+ a.click();
+ URL.revokeObjectURL(url);
+};
+
+document.getElementById("clear").onclick=()=>{
+ result.value="";
+ updateCounter();
+ status.textContent="Текст очищен";
+};
+
+if(!SpeechRecognition){
+ status.textContent="Распознавание речи не поддерживается этим браузером.";
+}
+</script>
+</body>
+</html>
